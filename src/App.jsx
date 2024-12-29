@@ -3,6 +3,7 @@ import { Card, CardContent } from './components/ui/card';
 import { Input } from './components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Analytics } from '@vercel/analytics/react';
 import _ from 'lodash';
 
 const VAULT_NAMES = {
@@ -133,9 +134,22 @@ const OrigamiPoints = () => {
       .value();
   };
 
-  const formatAddress = (address) => {
+  const formatAddress = (address, clickable = true) => {
     if (!address) return '';
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
+    if (!clickable) return shortAddress;
+    
+    return (
+      <a 
+        href={`https://debank.com/profile/${address}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-600 hover:text-blue-800 hover:underline"
+        onClick={(e) => e.stopPropagation()} // Prevent expanding when clicking the link
+      >
+        {shortAddress}
+      </a>
+    );
   };
 
   const formatNumber = (num) => {
@@ -145,11 +159,12 @@ const OrigamiPoints = () => {
   };
 
   const getVaultName = (address) => {
-    return VAULT_NAMES[address] || formatAddress(address);
+    return VAULT_NAMES[address] || formatAddress(address, false);
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Analytics />
       <div className="container mx-auto p-4 max-w-6xl">
         {/* Header with Logo */}
         <div className="flex flex-col items-center mb-8 pt-8">
@@ -287,7 +302,7 @@ const OrigamiPoints = () => {
                               <div className="text-lg">
                                 {formatNumber(vault.points)}
                               </div>
-                              <div className="text-sm text-gray-500">
+                                                            <div className="text-sm text-gray-500">
                                 {((vault.points / item.totalPoints) * 100).toFixed(2)}% of wallet
                               </div>
                             </div>
