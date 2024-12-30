@@ -1,8 +1,7 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './components/ui/card';
 import { Input } from './components/ui/input';
+import { Switch } from './components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Analytics } from '@vercel/analytics/react';
@@ -33,6 +32,19 @@ const VAULT_NAMES = {
   "0xC3979edD2bC308D536964b9515161C8551D0aE3a": "lov-wETH-sDAI-short-a"
 };
 
+const gradients = [
+  'linear-gradient(to right, #FF8066, #FF5252)', // lovPendle
+  'linear-gradient(to right, #FF4D4D, #FF66FF)', // lovEthena
+  'linear-gradient(to right, #66FF80, #FFE566)', // lovStables
+  'linear-gradient(to right, #B366FF, #6680FF)', // lovETH
+  'linear-gradient(to right, #4D80FF, #66FFFF)', // lovBTC
+  'linear-gradient(to right, #66FFB3, #66FF80)'  // lovTendies
+];
+
+const getRandomGradient = () => {
+  return gradients[Math.floor(Math.random() * gradients.length)];
+};
+
 const OrigamiPoints = () => {
   const [address, setAddress] = useState('');
   const [allPoints, setAllPoints] = useState([]);
@@ -45,10 +57,17 @@ const OrigamiPoints = () => {
   const [yesterdayPoints, setYesterdayPoints] = useState(0);
   const [s1Points, setS1Points] = useState(0);
   const [s2Points, setS2Points] = useState(0);
+  const [hideTempleAddresses, setHideTempleAddresses] = useState(false);
+  const [hideOrigamiAddresses, setHideOrigamiAddresses] = useState(false);
 
-  const getPeriodPoints = (data, pointsId) => {
-    return _.sumBy(data.filter(item => item.points_id === pointsId), 'allocation');
-  };
+  const TEMPLE_ADDRESSES = [
+    "0x0591926d5d3b9Cc48ae6eFB8Db68025ddc3adFA5".toLowerCase(),
+    "0x6feb7be522DB641A5C0f246924D8a92cF3218692".toLowerCase()
+  ];
+
+  const ORIGAMI_ADDRESSES = [
+    "0x781B4c57100738095222bd92D37B07ed034AB696".toLowerCase()
+  ];
 
   const fetchAllPoints = async () => {
     setLoading(true);
@@ -69,28 +88,11 @@ const OrigamiPoints = () => {
       const vaults = _.uniq(data.map(item => item.token_address));
       setUniqueVaults(vaults);
       
-      // Calculate yesterday's points
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(0, 0, 0, 0);
-      
-      const yesterdayPoints = _.sumBy(
-        data.filter(item => {
-          const itemDate = new Date(item.timestamp);
-          return itemDate >= yesterday && itemDate < new Date();
-        }),
-        'allocation'
-      );
-  
-      // Calculate season points
-      const s1Points = getPeriodPoints(data, 'P-1') + getPeriodPoints(data, 'P-2');
-      const s2Points = getPeriodPoints(data, 'P-6');
-      const totalPoints = s1Points + s2Points;
-  
-      setTotalPoints(totalPoints);
-      setYesterdayPoints(yesterdayPoints);
-      setS1Points(s1Points);
-      setS2Points(s2Points);
+      const points = calculatePoints(data);
+      setTotalPoints(points.totalPoints);
+      setYesterdayPoints(points.yesterdayPoints);
+      setS1Points(points.s1Points);
+      setS2Points(points.s2Points);
       
     } catch (err) {
       setError(err.message);
@@ -98,6 +100,67 @@ const OrigamiPoints = () => {
       setLoading(false);
     }
   };
+  
+  const getPeriodPoints = (data, pointsId) => {
+    return _.sumBy(data.filter(item => item.points_id === pointsId), 'allocation');
+  };
+  
+  const calculatePoints = (data) => {
+    // Filter out hidden addresses
+    const filteredData = data.filter(item => {
+      const addressLower = item.holder_address.toLowerCase();
+      if (hideTempleAddresses && TEMPLE_ADDRESSES.includes(addressLower)) return false;
+      if (hideOrigamiAddresses && ORIGAMI_ADDRESSES.includes(addressLower)) return false;
+      return true;
+    });
+  
+    // Calculate yesterday's points
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(0, 0, 0, 0);
+    
+    const yesterdayPoints = _.sumBy(
+      filteredData.filter(item => {
+        const itemDate = new Date(item.timestamp);
+        return itemDate >= yesterday && itemDate < new Date();
+      }),
+      'allocation'
+    );
+  
+    // Calculate season points
+    const s1Points = getPeriodPoints(filteredData, 'P-1') + getPeriodPoints(filteredData, 'P-2');
+    const s2Points = getPeriodPoints(filteredData, 'P-6');
+    const totalPoints = s1Points + s2Points;
+  
+    return { yesterdayPoints, s1Points, s2Points, totalPoints };
+  };
+
+  const getActiveAddressCounts = () => {
+    const allAddresses = _.uniq(allPoints.map(item => item.holder_address));
+    const activeAddresses = _.uniq(
+      allPoints.filter(item => {
+        const lastUpdate = new Date(item.timestamp);
+        const today = new Date();
+        return lastUpdate.toDateString() === today.toDateString();
+      }).map(item => item.holder_address)
+    );
+    
+    return {
+      active: activeAddresses.length,
+      total: allAddresses.length
+    };
+  };
+
+  // Add effect to recalculate when filters change
+  useEffect(() => {
+    if (allPoints.length > 0) {
+      const points = calculatePoints(allPoints);
+      setTotalPoints(points.totalPoints);
+      setYesterdayPoints(points.yesterdayPoints);
+      setS1Points(points.s1Points);
+      setS2Points(points.s2Points);
+    }
+  }, [hideTempleAddresses, hideOrigamiAddresses]);
 
   useEffect(() => {
     fetchAllPoints();
@@ -165,7 +228,7 @@ const OrigamiPoints = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ background: "linear-gradient(to right, #f0faf9, #f5f9fc)" }}>
       <Analytics />
       <div className="container mx-auto p-4 max-w-6xl">
         {/* Header with Logo */}
@@ -188,49 +251,104 @@ const OrigamiPoints = () => {
         </div>
 
         {/* Stats Box */}
-        <div className="bg-white rounded-lg shadow-sm mb-6 p-4">
+        <div className="mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <p className="text-lg font-semibold">{formatNumber(totalPoints)}</p>
-              <p className="text-sm text-gray-500">Total Points</p>
+            {/* Total Points - lovPendle gradient */}
+            <div className="p-[0.5px] rounded-[24px] max-w-[300px] w-full mx-auto" style={{ background: 'linear-gradient(to right, #FF8066, #FF5252)' }}>
+              <div className="bg-white py-4 px-3 rounded-[24px] h-full flex flex-col justify-center items-center">
+                <p className="text-xl font-semibold">{formatNumber(totalPoints)}</p>
+                <p className="text-sm text-gray-500">Total Points</p>
+              </div>
             </div>
-            <div className="text-center">
-              <p className="text-lg font-semibold">{formatNumber(yesterdayPoints)}</p>
-              <p className="text-sm text-gray-500">Yesterday Points</p>
+            
+            {/* Yesterday Points - lovEthena gradient */}
+            <div className="p-[0.5px] rounded-[24px] max-w-[300px] w-full mx-auto" style={{ background: 'linear-gradient(to right, #FF4D4D, #FF66FF)' }}>
+              <div className="bg-white py-4 px-3 rounded-[24px] h-full flex flex-col justify-center items-center">
+                <p className="text-lg font-semibold">{formatNumber(yesterdayPoints)}</p>
+                <p className="text-sm text-gray-500">Yesterday Points</p>
+              </div>
             </div>
-            <div className="text-center">
-              <p className="text-lg font-semibold">{formatNumber(s1Points)}</p>
-              <p className="text-sm text-gray-500">S1 Points</p>
+
+            {/* S1 Points - lovStables gradient */}
+            <div className="p-[0.5px] rounded-[24px] max-w-[300px] w-full mx-auto" style={{ background: 'linear-gradient(to right, #66FF80, #FFE566)' }}>
+              <div className="bg-white py-4 px-3 rounded-[24px] h-full flex flex-col justify-center items-center">
+                <p className="text-lg font-semibold">{formatNumber(s1Points)}</p>
+                <p className="text-sm text-gray-500">S1 Points</p>
+              </div>
             </div>
-            <div className="text-center">
-              <p className="text-lg font-semibold">{formatNumber(s2Points)}</p>
-              <p className="text-sm text-gray-500">S2 Points</p>
+
+            {/* S2 Points - lovETH gradient */}
+            <div className="p-[0.5px] rounded-[24px] max-w-[300px] w-full mx-auto" style={{ background: 'linear-gradient(to right, #B366FF, #6680FF)' }}>
+              <div className="bg-white py-4 px-3 rounded-[24px] h-full flex flex-col justify-center items-center">
+                <p className="text-lg font-semibold">{formatNumber(s2Points)}</p>
+                <p className="text-sm text-gray-500">S2 Points</p>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Search and Filter Controls */}
-        <div className="bg-white rounded-lg shadow-sm mb-6 p-4">
+        <div className="mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              placeholder="Search address"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className="w-full"
+            {/* Search Box */}
+            <div className="p-[1px] rounded-[28px]" style={{ background: 'linear-gradient(to right, #4D80FF, #66FFFF)' }}>
+              <div className="bg-white rounded-[28px]">
+                <Input
+                  placeholder="Search address"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="w-full border-none focus:ring-0 rounded-[28px] px-4 py-3"
+                />
+              </div>
+            </div>
+
+            {/* Vault Filter */}
+            <div className="p-[1px] rounded-[28px]" style={{ background: 'linear-gradient(to right, #66FFB3, #66FF80)' }}>
+              <div className="bg-white rounded-[28px]">
+                <Select value={selectedVault} onValueChange={setSelectedVault}>
+                  <SelectTrigger className="w-full border-none focus:ring-0 rounded-[28px] px-4 py-3">
+                    <SelectValue placeholder="All Vaults" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Vaults</SelectItem>
+                    {uniqueVaults.map((vault) => (
+                      <SelectItem key={vault} value={vault}>
+                        {getVaultName(vault)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Legend & Filters */}
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-gray-500 text-sm">
+            <img 
+              src="https://origami.finance/light/boosted-yields.svg" 
+              alt="Active today"
+              className="w-4 h-4"
             />
-            <Select value={selectedVault} onValueChange={setSelectedVault}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filter by vault" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Vaults</SelectItem>
-                {uniqueVaults.map((vault) => (
-                  <SelectItem key={vault} value={vault}>
-                    {getVaultName(vault)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <span>{getActiveAddressCounts().active}/{getActiveAddressCounts().total} addresses received points today</span>
+          </div>
+          <div className="flex items-center gap-6">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Switch 
+                checked={hideTempleAddresses}
+                onCheckedChange={setHideTempleAddresses}
+              />
+              <span className="text-gray-500 text-sm">Hide Temple addresses</span>
+            </label>
+            
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Switch 
+                checked={hideOrigamiAddresses}
+                onCheckedChange={setHideOrigamiAddresses}
+              />
+              <span className="text-gray-500 text-sm">Hide Origami fee address</span>
+            </label>
           </div>
         </div>
 
@@ -242,7 +360,7 @@ const OrigamiPoints = () => {
         )}
 
         {error && (
-          <div className="text-red-500 text-center py-4 bg-white rounded-lg shadow-sm">
+          <div className="text-red-500 text-center py-4 bg-white rounded-[28px] shadow-sm overflow-hidden">
             {error}
           </div>
         )}
@@ -250,61 +368,88 @@ const OrigamiPoints = () => {
         {!loading && (
           <div className="space-y-4">
             {getAggregatedData()
-              .filter(item => 
-                !address || 
-                item.address.toLowerCase().includes(address.toLowerCase())
-              )
+              .filter(item => {
+                const addressLower = item.address.toLowerCase();
+                if (hideTempleAddresses && TEMPLE_ADDRESSES.includes(addressLower)) return false;
+                if (hideOrigamiAddresses && ORIGAMI_ADDRESSES.includes(addressLower)) return false;
+                return !address || addressLower.includes(address.toLowerCase());
+              })
               .map((item, index) => (
-                <Card key={item.address} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
+                <Card 
+                  key={item.address} 
+                  className="hover:shadow-md transition-shadow p-[1px] overflow-hidden rounded-[28px]" 
+                  style={{ 
+                    padding: '1px',
+                    borderRadius: '32px',
+                    background: getRandomGradient(),
+                    isolation: 'isolate',
+                    overflow: 'hidden'                  
+                  }}
+                >
+                  <div  
+                    className="bg-white w-full h-full"
+                    style={{
+                      borderRadius: '31px',
+                      padding: '16px'
+                    }}
+                    >
                     <div 
                       className="flex justify-between items-center cursor-pointer"
                       onClick={() => toggleAddressExpansion(item.address)}
                     >
                       <div className="flex gap-4 items-center">
-                        <span className="text-gray-500 w-8 mt-4">#{index + 1}</span>
-                        <div className="mt-4">
-                          <p className="font-medium">{formatAddress(item.address)}</p>
-                          <p className="text-sm text-gray-500">
-                            {item.vaults.length} vault{item.vaults.length !== 1 ? 's' : ''}
-                          </p>
+                        <span className="text-gray-400 w-8">#{index + 1}</span>
+                        <div>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-blue-500">{formatAddress(item.address)}</p>
+                              {item.vaults.some(vault => {
+                                const lastUpdate = new Date(vault.lastUpdate);
+                                const today = new Date();
+                                return lastUpdate.toDateString() === today.toDateString();
+                              }) && (
+                                <img 
+                                  src="https://origami.finance/light/boosted-yields.svg" 
+                                  alt="Active today"
+                                  className="w-4 h-4"
+                                />
+                              )}
+                            </div>
+                            <p className="text-gray-400 text-sm">
+                              {item.vaults.length} vault{item.vaults.length !== 1 ? 's' : ''}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-1 mt-4">
+                      <div className="flex flex-col items-end gap-1">
                         <span className="text-xl font-semibold">
                           {formatNumber(item.totalPoints)}
                         </span>
-                        <span className="text-sm text-gray-500">
+                        <span className="text-gray-400 text-sm">
                           {((item.totalPoints / totalPoints) * 100).toFixed(2)}% of total
-                        </span>
-                        <span className="ml-2">
-                          {expandedAddresses.has(item.address) ? (
-                            <ChevronUp className="h-5 w-5" />
-                          ) : (
-                            <ChevronDown className="h-5 w-5" />
-                          )}
                         </span>
                       </div>
                     </div>
 
+                    {/* Expanded vault details */}
                     {expandedAddresses.has(item.address) && (
                       <div className="mt-4 space-y-2">
                         {item.vaults.map((vault) => (
                           <div 
                             key={vault.vault}
-                            className="flex justify-between items-center p-2 bg-gray-50 rounded"
+                            className="flex justify-between items-center p-3 bg-gray-50 rounded-[20px] overflow-hidden"
                           >
                             <div>
                               <p className="font-medium">{getVaultName(vault.vault)}</p>
-                              <p className="text-sm text-gray-500">
+                              <p className="text-gray-400 text-sm">
                                 Last updated: {new Date(vault.lastUpdate).toLocaleDateString()}
                               </p>
                             </div>
                             <div className="flex flex-col items-end">
-                              <div className="text-lg">
+                              <div className="text-lg font-medium">
                                 {formatNumber(vault.points)}
                               </div>
-                                                            <div className="text-sm text-gray-500">
+                              <div className="text-gray-400 text-sm">
                                 {((vault.points / item.totalPoints) * 100).toFixed(2)}% of wallet
                               </div>
                             </div>
@@ -312,7 +457,7 @@ const OrigamiPoints = () => {
                         ))}
                       </div>
                     )}
-                  </CardContent>
+                  </div>
                 </Card>
               ))}
           </div>
@@ -323,4 +468,3 @@ const OrigamiPoints = () => {
 };
 
 export default OrigamiPoints;
-
