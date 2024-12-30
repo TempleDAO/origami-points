@@ -5,6 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import _ from 'lodash';
 import DateRange from '@/components/ui/date-range';
 import { Slider } from "@/components/ui/slider";
@@ -268,6 +269,7 @@ const OrigamiPoints = () => {
   return (
     <div className="min-h-screen" style={{ background: "linear-gradient(to right, #f0faf9, #f5f9fc)" }}>
       <Analytics />
+      <SpeedInsights/>
       <div className="container mx-auto p-4 max-w-6xl">
         {/* Header with Logo */}
         <div className="flex flex-col items-center mb-8 pt-8">
