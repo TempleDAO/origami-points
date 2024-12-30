@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent } from './components/ui/card';
-import { Input } from './components/ui/input';
-import { Switch } from './components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Analytics } from '@vercel/analytics/react';
 import _ from 'lodash';
+import DateRange from '@/components/ui/date-range';
+import { Slider } from "@/components/ui/slider";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ScatterChart, Scatter, ZAxis } from 'recharts';
 
 const VAULT_NAMES = {
   "0xE567DCf433F97d787dF2359bDBF95dFd2B7aBF4E": "lov-sUSDe-b",
@@ -59,6 +62,7 @@ const OrigamiPoints = () => {
   const [s2Points, setS2Points] = useState(0);
   const [hideTempleAddresses, setHideTempleAddresses] = useState(false);
   const [hideOrigamiAddresses, setHideOrigamiAddresses] = useState(false);
+  const [activeTab, setActiveTab] = useState('leaderboard');
 
   const TEMPLE_ADDRESSES = [
     "0x0591926d5d3b9Cc48ae6eFB8Db68025ddc3adFA5".toLowerCase(),
@@ -68,6 +72,10 @@ const OrigamiPoints = () => {
   const ORIGAMI_ADDRESSES = [
     "0x781B4c57100738095222bd92D37B07ed034AB696".toLowerCase()
   ];
+
+  const [sliderValue, setSliderValue] = useState([0, 100]);
+
+  const [dateRange, setDateRange] = useState([null, null]);
 
   const fetchAllPoints = async () => {
     setLoading(true);
@@ -100,13 +108,12 @@ const OrigamiPoints = () => {
       setLoading(false);
     }
   };
-  
+
   const getPeriodPoints = (data, pointsId) => {
     return _.sumBy(data.filter(item => item.points_id === pointsId), 'allocation');
   };
-  
+
   const calculatePoints = (data) => {
-    // Filter out hidden addresses
     const filteredData = data.filter(item => {
       const addressLower = item.holder_address.toLowerCase();
       if (hideTempleAddresses && TEMPLE_ADDRESSES.includes(addressLower)) return false;
@@ -114,7 +121,6 @@ const OrigamiPoints = () => {
       return true;
     });
   
-    // Calculate yesterday's points
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     yesterday.setHours(0, 0, 0, 0);
@@ -127,7 +133,6 @@ const OrigamiPoints = () => {
       'allocation'
     );
   
-    // Calculate season points
     const s1Points = getPeriodPoints(filteredData, 'P-1') + getPeriodPoints(filteredData, 'P-2');
     const s2Points = getPeriodPoints(filteredData, 'P-6');
     const totalPoints = s1Points + s2Points;
@@ -151,7 +156,26 @@ const OrigamiPoints = () => {
     };
   };
 
-  // Add effect to recalculate when filters change
+  const analyticsData = React.useMemo(() => {
+    return _(allPoints)
+      .groupBy(item => new Date(item.timestamp).toISOString().split('T')[0])
+      .map((items, date) => ({
+        date,
+        activeAddresses: _.uniq(items.map(i => i.holder_address)).length,
+        totalPoints: _.sumBy(items, 'allocation')
+      }))
+      .sortBy('date')
+      .value();
+  }, [allPoints]);
+
+  const filteredData = React.useMemo(() => {
+    if (!dateRange[0] || !dateRange[1]) return analyticsData;
+    return analyticsData.filter(item => {
+      const itemDate = new Date(item.date);
+      return itemDate >= dateRange[0] && itemDate <= dateRange[1];
+    });
+  }, [analyticsData, dateRange]);
+
   useEffect(() => {
     if (allPoints.length > 0) {
       const points = calculatePoints(allPoints);
@@ -180,7 +204,7 @@ const OrigamiPoints = () => {
     const filteredData = selectedVault === 'all' 
       ? allPoints 
       : allPoints.filter(item => item.token_address === selectedVault);
-
+  
     return _(filteredData)
       .groupBy('holder_address')
       .map((items, address) => ({
@@ -193,10 +217,24 @@ const OrigamiPoints = () => {
             points: _.sumBy(vaultItems, 'allocation'),
             lastUpdate: _.maxBy(vaultItems, 'timestamp').timestamp
           }))
+          .value(),
+        vaultCount: _(items)
+          .groupBy('token_address')
+          .keys()
           .value()
+          .length
       }))
       .orderBy(['totalPoints'], ['desc'])
       .value();
+  };
+
+  const getWhaleAnalysisData = () => {
+    const aggregatedData = getAggregatedData();
+    return aggregatedData.map(item => ({
+      vaultCount: item.vaultCount,
+      totalPoints: item.totalPoints,
+      address: item.address
+    }));
   };
 
   const formatAddress = (address, clickable = true) => {
@@ -210,7 +248,7 @@ const OrigamiPoints = () => {
         target="_blank"
         rel="noopener noreferrer"
         className="text-blue-600 hover:text-blue-800 hover:underline"
-        onClick={(e) => e.stopPropagation()} // Prevent expanding when clicking the link
+        onClick={(e) => e.stopPropagation()}
       >
         {shortAddress}
       </a>
@@ -253,7 +291,6 @@ const OrigamiPoints = () => {
         {/* Stats Box */}
         <div className="mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Total Points - lovPendle gradient */}
             <div className="p-[0.5px] rounded-[24px] max-w-[300px] w-full mx-auto" style={{ background: 'linear-gradient(to right, #FF8066, #FF5252)' }}>
               <div className="bg-white py-4 px-3 rounded-[24px] h-full flex flex-col justify-center items-center">
                 <p className="text-xl font-semibold">{formatNumber(totalPoints)}</p>
@@ -261,7 +298,6 @@ const OrigamiPoints = () => {
               </div>
             </div>
             
-            {/* Yesterday Points - lovEthena gradient */}
             <div className="p-[0.5px] rounded-[24px] max-w-[300px] w-full mx-auto" style={{ background: 'linear-gradient(to right, #FF4D4D, #FF66FF)' }}>
               <div className="bg-white py-4 px-3 rounded-[24px] h-full flex flex-col justify-center items-center">
                 <p className="text-lg font-semibold">{formatNumber(yesterdayPoints)}</p>
@@ -269,7 +305,6 @@ const OrigamiPoints = () => {
               </div>
             </div>
 
-            {/* S1 Points - lovStables gradient */}
             <div className="p-[0.5px] rounded-[24px] max-w-[300px] w-full mx-auto" style={{ background: 'linear-gradient(to right, #66FF80, #FFE566)' }}>
               <div className="bg-white py-4 px-3 rounded-[24px] h-full flex flex-col justify-center items-center">
                 <p className="text-lg font-semibold">{formatNumber(s1Points)}</p>
@@ -277,7 +312,6 @@ const OrigamiPoints = () => {
               </div>
             </div>
 
-            {/* S2 Points - lovETH gradient */}
             <div className="p-[0.5px] rounded-[24px] max-w-[300px] w-full mx-auto" style={{ background: 'linear-gradient(to right, #B366FF, #6680FF)' }}>
               <div className="bg-white py-4 px-3 rounded-[24px] h-full flex flex-col justify-center items-center">
                 <p className="text-lg font-semibold">{formatNumber(s2Points)}</p>
@@ -287,87 +321,259 @@ const OrigamiPoints = () => {
           </div>
         </div>
 
-        {/* Search and Filter Controls */}
+        {/* Tab Navigation */}
         <div className="mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Search Box */}
-            <div className="p-[1px] rounded-[28px]" style={{ background: 'linear-gradient(to right, #4D80FF, #66FFFF)' }}>
-              <div className="bg-white rounded-[28px]">
-                <Input
-                  placeholder="Search address"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="w-full border-none focus:ring-0 rounded-[28px] px-4 py-3"
-                />
-              </div>
-            </div>
-
-            {/* Vault Filter */}
-            <div className="p-[1px] rounded-[28px]" style={{ background: 'linear-gradient(to right, #66FFB3, #66FF80)' }}>
-              <div className="bg-white rounded-[28px]">
-                <Select value={selectedVault} onValueChange={setSelectedVault}>
-                  <SelectTrigger className="w-full border-none focus:ring-0 rounded-[28px] px-4 py-3">
-                    <SelectValue placeholder="All Vaults" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Vaults</SelectItem>
-                    {uniqueVaults.map((vault) => (
-                      <SelectItem key={vault} value={vault}>
-                        {getVaultName(vault)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          <div className="p-[1px] rounded-[28px] bg-gradient-to-r from-blue-400 to-purple-400">
+            <div className="bg-white rounded-[28px] p-1">
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setActiveTab('leaderboard')}
+                  className={`flex-1 px-4 py-2 rounded-[24px] text-sm font-medium transition-colors
+                    ${activeTab === 'leaderboard' 
+                      ? 'bg-gradient-to-r from-blue-400 to-purple-400 text-white' 
+                      : 'text-gray-600 hover:bg-gray-50'}`}
+                >
+                  Leaderboard
+                </button>
+                <button
+                  onClick={() => setActiveTab('analytics')}
+                  className={`flex-1 px-4 py-2 rounded-[24px] text-sm font-medium transition-colors
+                    ${activeTab === 'analytics' 
+                      ? 'bg-gradient-to-r from-blue-400 to-purple-400 text-white' 
+                      : 'text-gray-600 hover:bg-gray-50'}`}
+                >
+                  Analytics
+                </button>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Search and Filter Controls */}
+        {activeTab === 'leaderboard' && (
+          <div className="mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-[1px] rounded-[28px]" style={{ background: 'linear-gradient(to right, #4D80FF, #66FFFF)' }}>
+                <div className="bg-white rounded-[28px]">
+                  <Input
+                    placeholder="Search address"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="w-full border-none focus:ring-0 rounded-[28px] px-4 py-3"
+                  />
+                </div>
+              </div>
+
+              <div className="p-[1px] rounded-[28px]" style={{ background: 'linear-gradient(to right, #66FFB3, #66FF80)' }}>
+                <div className="bg-white rounded-[28px]">
+                  <Select value={selectedVault} onValueChange={setSelectedVault}>
+                    <SelectTrigger className="w-full border-none focus:ring-0 rounded-[28px] px-4 py-3">
+                      <SelectValue placeholder="All Vaults" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Vaults</SelectItem>
+                      {uniqueVaults.map((vault) => (
+                        <SelectItem key={vault} value={vault}>
+                          {getVaultName(vault)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Legend & Filters */}
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-gray-500 text-sm">
-            <img 
-              src="https://origami.finance/light/boosted-yields.svg" 
-              alt="Active today"
-              className="w-4 h-4"
-            />
-            <span>{getActiveAddressCounts().active}/{getActiveAddressCounts().total} addresses received points today</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <Switch 
-                checked={hideTempleAddresses}
-                onCheckedChange={setHideTempleAddresses}
+        {activeTab === 'leaderboard' && (
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-gray-500 text-sm">
+              <img 
+                src="https://origami.finance/light/boosted-yields.svg" 
+                alt="Active today"
+                className="w-4 h-4"
               />
-              <span className="text-gray-500 text-sm">Hide Temple addresses</span>
-            </label>
-            
-            <label className="flex items-center gap-2 cursor-pointer">
-              <Switch 
-                checked={hideOrigamiAddresses}
-                onCheckedChange={setHideOrigamiAddresses}
-              />
-              <span className="text-gray-500 text-sm">Hide Origami fee address</span>
-            </label>
-          </div>
-        </div>
-
-        {/* Leaderboard */}
-        {loading && (
-          <div className="text-center py-8">
-            Loading...
+              <span>{getActiveAddressCounts().active}/{getActiveAddressCounts().total} addresses received points today</span>
+            </div>
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Switch 
+                  checked={hideTempleAddresses}
+                  onCheckedChange={setHideTempleAddresses}
+                />
+                <span className="text-gray-500 text-sm">Hide Temple addresses</span>
+              </label>
+              
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Switch 
+                  checked={hideOrigamiAddresses}
+                  onCheckedChange={setHideOrigamiAddresses}
+                />
+                <span className="text-gray-500 text-sm">Hide Origami fee address</span>
+              </label>
+            </div>
           </div>
         )}
 
-        {error && (
-          <div className="text-red-500 text-center py-4 bg-white rounded-[28px] shadow-sm overflow-hidden">
-            {error}
+        {activeTab === 'analytics' && (
+          <div className="space-y-6">
+            <Card className="hover:shadow-md transition-shadow p-[1px] overflow-hidden rounded-[28px]" 
+                  style={{ 
+                    padding: '1.5px',
+                    borderRadius: '32px',
+                    background: getRandomGradient(),
+                    isolation: 'isolate',
+                    overflow: 'hidden'                  
+                  }}>
+              <div className="bg-white p-6 rounded-[27px]">
+                <h3 className="text-lg font-semibold mb-4">Daily Active Addresses</h3>
+                
+                {/* Main Chart */}
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={filteredData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="date" 
+                        tickFormatter={(date) => new Date(date).toLocaleDateString()}
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis />
+                      <Tooltip 
+                        labelFormatter={(date) => new Date(date).toLocaleDateString()}
+                        formatter={(value) => new Intl.NumberFormat().format(value)}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="activeAddresses" 
+                        stroke="#8884d8" 
+                        name="Active Addresses"
+                        dot={false}
+                        isAnimationActive={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Mini Chart + Slider */}
+                <div className="mt-6 border-t pt-4">
+                  <div className="h-8 relative">
+                    {/* Date Labels */}
+                    <div className="absolute -top-6 left-0 right-0 flex justify-between text-xs text-gray-500">
+                      <span>{analyticsData[0]?.date ? new Date(analyticsData[0].date).toLocaleDateString() : ''}</span>
+                      <span>{analyticsData[analyticsData.length - 1]?.date ? new Date(analyticsData[analyticsData.length - 1].date).toLocaleDateString() : ''}</span>
+                    </div>
+
+                    {/* Slider Overlay */}
+                    <div className="absolute inset-0 flex items-center">
+                      <Slider
+                        defaultValue={[0, 100]}
+                        value={sliderValue}
+                        max={100}
+                        step={1}
+                        className="w-full"
+                        onValueChange={(value) => {
+                          setSliderValue(value);
+                          if (analyticsData.length === 0) return;
+                          
+                          const startIdx = Math.floor(analyticsData.length * (value[0] / 100));
+                          const endIdx = Math.floor(analyticsData.length * (value[1] / 100));
+                          
+                          setDateRange([
+                            new Date(analyticsData[startIdx].date),
+                            new Date(analyticsData[Math.min(endIdx, analyticsData.length - 1)].date)
+                          ]);
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Whale Analysis Scatter Chart 
+            <Card className="hover:shadow-md transition-shadow p-[1px] overflow-hidden rounded-[28px]" 
+                  style={{ 
+                    padding: '1.5px',
+                    borderRadius: '32px',
+                    background: getRandomGradient(),
+                    isolation: 'isolate',
+                    overflow: 'hidden'                  
+                  }}>
+              <div className="bg-white p-6 rounded-[27px]">
+                <h3 className="text-lg font-semibold mb-4">Whale Analysis: Vaults vs Points</h3>
+                
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ScatterChart data={getWhaleAnalysisData()}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        type="number" 
+                        dataKey="vaultCount" 
+                        name="Number of Vaults" 
+                        label={{ value: 'Number of Vaults', position: 'insideBottom', offset: -10 }}
+                      />
+                      <YAxis 
+                        type="number" 
+                        dataKey="totalPoints" 
+                        name="Total Points" 
+                        label={{ value: 'Total Points', angle: -90, position: 'insideLeft' }}
+                      />
+                      <ZAxis 
+                        type="category" 
+                        dataKey="address" 
+                        name="Address"
+                      />
+                      <Tooltip 
+                        cursor={{ strokeDasharray: '3 3' }}
+                        formatter={(value, name, props) => {
+                          if (name === 'Total Points') {
+                            return new Intl.NumberFormat().format(value);
+                          }
+                          return value;
+                        }}
+                        labelFormatter={(value) => `Address: ${value}`}
+                      />
+                      <Scatter 
+                        name="Whale Analysis" 
+                        data={getWhaleAnalysisData()} 
+                        fill="#8884d8"
+                        fillOpacity={0.7}
+                      />
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="mt-4 text-sm text-gray-500">
+                  <p>Insights:</p>
+                  <ul className="list-disc list-inside">
+                    <li>Each point represents an address</li>
+                    <li>X-axis shows the number of vaults an address is involved in</li>
+                    <li>Y-axis shows the total points earned by that address</li>
+                  </ul>
+                </div>
+              </div>
+            </Card> */}
           </div>
         )}
 
-        {!loading && (
+        {/* Leaderboard Content */}
+        {activeTab === 'leaderboard' && (
           <div className="space-y-4">
-            {getAggregatedData()
+            {loading && (
+              <div className="text-center py-8">
+                Loading...
+              </div>
+            )}
+
+            {error && (
+              <div className="text-red-500 text-center py-4 bg-white rounded-[28px] shadow-sm overflow-hidden">
+                {error}
+              </div>
+            )}
+
+            {!loading && getAggregatedData()
               .filter(item => {
                 const addressLower = item.address.toLowerCase();
                 if (hideTempleAddresses && TEMPLE_ADDRESSES.includes(addressLower)) return false;
@@ -392,7 +598,7 @@ const OrigamiPoints = () => {
                       borderRadius: '31px',
                       padding: '16px'
                     }}
-                    >
+                  >
                     <div 
                       className="flex justify-between items-center cursor-pointer"
                       onClick={() => toggleAddressExpansion(item.address)}
