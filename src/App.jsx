@@ -438,6 +438,7 @@ const OrigamiPoints = () => {
                         dataKey="date" 
                         tickFormatter={(date) => new Date(date).toLocaleDateString()}
                         interval="preserveStartEnd"
+                        tick={{ fontSize: 8 }} 
                       />
                       <YAxis />
                       <Tooltip 
