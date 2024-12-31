@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -8,6 +8,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from "@vercel/speed-insights/react"
 import _ from 'lodash';
 import DateRange from '@/components/ui/date-range';
+import { useQuery } from '@tanstack/react-query';
 import { Slider } from "@/components/ui/slider";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ScatterChart, Scatter, ZAxis } from 'recharts';
 
@@ -50,21 +51,6 @@ const getRandomGradient = () => {
 };
 
 const OrigamiPoints = () => {
-  const [address, setAddress] = useState('');
-  const [allPoints, setAllPoints] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [selectedVault, setSelectedVault] = useState('all');
-  const [expandedAddresses, setExpandedAddresses] = useState(new Set());
-  const [uniqueVaults, setUniqueVaults] = useState([]);
-  const [totalPoints, setTotalPoints] = useState(0);
-  const [yesterdayPoints, setYesterdayPoints] = useState(0);
-  const [s1Points, setS1Points] = useState(0);
-  const [s2Points, setS2Points] = useState(0);
-  const [hideTempleAddresses, setHideTempleAddresses] = useState(false);
-  const [hideOrigamiAddresses, setHideOrigamiAddresses] = useState(false);
-  const [activeTab, setActiveTab] = useState('leaderboard');
-
   const TEMPLE_ADDRESSES = [
     "0x0591926d5d3b9Cc48ae6eFB8Db68025ddc3adFA5".toLowerCase(),
     "0x6feb7be522DB641A5C0f246924D8a92cF3218692".toLowerCase()
@@ -73,42 +59,6 @@ const OrigamiPoints = () => {
   const ORIGAMI_ADDRESSES = [
     "0x781B4c57100738095222bd92D37B07ed034AB696".toLowerCase()
   ];
-
-  const [sliderValue, setSliderValue] = useState([0, 100]);
-
-  const [dateRange, setDateRange] = useState([null, null]);
-
-  const fetchAllPoints = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetch(
-        'https://origami.automation-templedao.link/points_allocation?holder_address=ilike.*'
-      );
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch points data');
-      }
-      
-      const data = await response.json();
-      setAllPoints(data);
-      
-      const vaults = _.uniq(data.map(item => item.token_address));
-      setUniqueVaults(vaults);
-      
-      const points = calculatePoints(data);
-      setTotalPoints(points.totalPoints);
-      setYesterdayPoints(points.yesterdayPoints);
-      setS1Points(points.s1Points);
-      setS2Points(points.s2Points);
-      
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const getPeriodPoints = (data, pointsId) => {
     return _.sumBy(data.filter(item => item.points_id === pointsId), 'allocation');
@@ -141,7 +91,52 @@ const OrigamiPoints = () => {
     return { yesterdayPoints, s1Points, s2Points, totalPoints };
   };
 
-  const getActiveAddressCounts = () => {
+  const [sliderValue, setSliderValue] = useState([0, 100]);
+  const [dateRange, setDateRange] = useState([null, null]);
+  const [address, setAddress] = useState('');
+  const [selectedVault, setSelectedVault] = useState('all');
+  const [expandedAddresses, setExpandedAddresses] = useState(new Set());
+  const [hideTempleAddresses, setHideTempleAddresses] = useState(false);
+  const [hideOrigamiAddresses, setHideOrigamiAddresses] = useState(false);
+  const [activeTab, setActiveTab] = useState('leaderboard');
+
+  const {
+    data: allPoints = [], // Default to empty array
+    isLoading,
+    error
+  } = useQuery({
+    queryKey: ['points-data'],
+    queryFn: async () => {
+      const response = await fetch(
+        'https://origami.automation-templedao.link/points_allocation?holder_address=ilike.*'
+      );
+      if (!response.ok) {
+        throw new Error('Failed to fetch points data');
+      }
+      return response.json();
+    }
+  });
+  
+  const {
+    uniqueVaults,
+    totalPoints,
+    yesterdayPoints,
+    s1Points,
+    s2Points
+  } = useMemo(() => {
+    const vaults = _.uniq(allPoints.map(item => item.token_address));
+    const points = calculatePoints(allPoints);
+    
+    return {
+      uniqueVaults: vaults,
+      totalPoints: points.totalPoints,
+      yesterdayPoints: points.yesterdayPoints,
+      s1Points: points.s1Points,
+      s2Points: points.s2Points
+    };
+  }, [allPoints, hideTempleAddresses, hideOrigamiAddresses]);
+
+  const activeAddressCounts = useMemo(() => {
     const allAddresses = _.uniq(allPoints.map(item => item.holder_address));
     const activeAddresses = _.uniq(
       allPoints.filter(item => {
@@ -155,7 +150,42 @@ const OrigamiPoints = () => {
       active: activeAddresses.length,
       total: allAddresses.length
     };
-  };
+  }, [allPoints]);
+
+  const aggregatedData = useMemo(() => {
+    const today = new Date().toDateString();
+    const filteredData = selectedVault === 'all' 
+      ? allPoints 
+      : allPoints.filter(item => item.token_address === selectedVault);
+  
+    return _(filteredData)
+      .groupBy('holder_address')
+      .map((items, address) => {
+        const vaults = _(items)
+          .groupBy('token_address')
+          .map((vaultItems, vault) => {
+            const lastUpdate = _.maxBy(vaultItems, 'timestamp').timestamp;
+            return {
+              vault,
+              points: _.sumBy(vaultItems, 'allocation'),
+              lastUpdate,
+              isActiveToday: new Date(lastUpdate).toDateString() === today
+            };
+          })
+          .value();
+  
+        return {
+          address,
+          totalPoints: _.sumBy(items, 'allocation'),
+          vaults,
+          vaultCount: vaults.length,
+          isActiveToday: vaults.some(v => v.isActiveToday)
+        };
+      })
+      .orderBy(['totalPoints'], ['desc'])
+      .value();
+  }, [allPoints, selectedVault, hideTempleAddresses, hideOrigamiAddresses]);
+
 
   const analyticsData = React.useMemo(() => {
     return _(allPoints)
@@ -177,20 +207,6 @@ const OrigamiPoints = () => {
     });
   }, [analyticsData, dateRange]);
 
-  useEffect(() => {
-    if (allPoints.length > 0) {
-      const points = calculatePoints(allPoints);
-      setTotalPoints(points.totalPoints);
-      setYesterdayPoints(points.yesterdayPoints);
-      setS1Points(points.s1Points);
-      setS2Points(points.s2Points);
-    }
-  }, [hideTempleAddresses, hideOrigamiAddresses]);
-
-  useEffect(() => {
-    fetchAllPoints();
-  }, []);
-
   const toggleAddressExpansion = (address) => {
     const newExpanded = new Set(expandedAddresses);
     if (newExpanded.has(address)) {
@@ -201,36 +217,7 @@ const OrigamiPoints = () => {
     setExpandedAddresses(newExpanded);
   };
 
-  const getAggregatedData = () => {
-    const filteredData = selectedVault === 'all' 
-      ? allPoints 
-      : allPoints.filter(item => item.token_address === selectedVault);
-  
-    return _(filteredData)
-      .groupBy('holder_address')
-      .map((items, address) => ({
-        address,
-        totalPoints: _.sumBy(items, 'allocation'),
-        vaults: _(items)
-          .groupBy('token_address')
-          .map((vaultItems, vault) => ({
-            vault,
-            points: _.sumBy(vaultItems, 'allocation'),
-            lastUpdate: _.maxBy(vaultItems, 'timestamp').timestamp
-          }))
-          .value(),
-        vaultCount: _(items)
-          .groupBy('token_address')
-          .keys()
-          .value()
-          .length
-      }))
-      .orderBy(['totalPoints'], ['desc'])
-      .value();
-  };
-
   const getWhaleAnalysisData = () => {
-    const aggregatedData = getAggregatedData();
     return aggregatedData.map(item => ({
       vaultCount: item.vaultCount,
       totalPoints: item.totalPoints,
@@ -396,7 +383,7 @@ const OrigamiPoints = () => {
                 alt="Active today"
                 className="w-4 h-4"
               />
-              <span>{getActiveAddressCounts().active}/{getActiveAddressCounts().total} addresses received points today</span>
+              <span>{activeAddressCounts.active}/{activeAddressCounts.total} addresses received points today</span>
             </div>
             <div className="flex items-center gap-6">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -564,7 +551,7 @@ const OrigamiPoints = () => {
         {/* Leaderboard Content */}
         {activeTab === 'leaderboard' && (
           <div className="space-y-4">
-            {loading && (
+            {isLoading && (
               <div className="text-center py-8">
                 Loading...
               </div>
@@ -572,11 +559,11 @@ const OrigamiPoints = () => {
 
             {error && (
               <div className="text-red-500 text-center py-4 bg-white rounded-[28px] shadow-sm overflow-hidden">
-                {error}
+                {error.message}
               </div>
             )}
-
-            {!loading && getAggregatedData()
+            
+            {!isLoading && aggregatedData
               .filter(item => {
                 const addressLower = item.address.toLowerCase();
                 if (hideTempleAddresses && TEMPLE_ADDRESSES.includes(addressLower)) return false;
