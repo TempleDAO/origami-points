@@ -10,7 +10,7 @@ import _ from 'lodash';
 import DateRange from '@/components/ui/date-range';
 import { useQuery } from '@tanstack/react-query';
 import { Slider } from "@/components/ui/slider";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ScatterChart, Scatter, ZAxis } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ScatterChart, Scatter, ZAxis, Bar, BarChart} from 'recharts';
 
 const VAULT_NAMES = {
   "0xE567DCf433F97d787dF2359bDBF95dFd2B7aBF4E": "lov-sUSDe-b",
@@ -186,6 +186,80 @@ const OrigamiPoints = () => {
       .value();
   }, [allPoints, selectedVault, hideTempleAddresses, hideOrigamiAddresses]);
 
+  const memoizedHelpers = useMemo(() => ({
+    getVaultPerformanceData: () => {
+      const vaultStats = _(allPoints)
+        .groupBy('token_address')
+        .map((items, vault) => ({
+          vault: getVaultName(vault),
+          totalPoints: _.sumBy(items, 'allocation')
+        }))
+        .orderBy(['totalPoints'], ['desc'])
+        .value();
+      return vaultStats;
+    },
+
+    getUserLifetimeStats: (userAddress) => {
+      if (!userAddress) return null;
+      
+      const userPoints = allPoints.filter(item => 
+        item.holder_address.toLowerCase() === userAddress.toLowerCase()
+      );
+
+      if (userPoints.length === 0) return null;
+
+      const s1Points = _.sumBy(
+        userPoints.filter(item => ['P-1', 'P-2'].includes(item.points_id)),
+        'allocation'
+      );
+      const s2Points = _.sumBy(
+        userPoints.filter(item => item.points_id === 'P-6'),
+        'allocation'
+      );
+
+      const uniqueVaults = _.uniqBy(userPoints, 'token_address');
+      
+      const vaultPoints = _(userPoints)
+        .groupBy('token_address')
+        .map((items, vault) => ({
+          vault: getVaultName(vault),
+          points: _.sumBy(items, 'allocation')
+        }))
+        .orderBy(['points'], ['desc'])
+        .value();
+
+      const pointsByDay = _(userPoints)
+        .groupBy(item => new Date(item.timestamp).toISOString().split('T')[0])
+        .mapValues(items => _.sumBy(items, 'allocation'))
+        .value();
+
+      const dates = Object.keys(pointsByDay).sort();
+      let maxStreak = 0;
+      let currentStreak = 0;
+
+      for (let i = 0; i < dates.length; i++) {
+        const currentDate = new Date(dates[i]);
+        const nextDate = i < dates.length - 1 ? new Date(dates[i + 1]) : null;
+        
+        if (nextDate && (nextDate - currentDate) / (1000 * 60 * 60 * 24) === 1) {
+          currentStreak++;
+          maxStreak = Math.max(maxStreak, currentStreak);
+        } else {
+          currentStreak = 0;
+        }
+      }
+
+      return {
+        totalPoints: _.sumBy(userPoints, 'allocation'),
+        s1Points,
+        s2Points,
+        longestStreak: maxStreak + 1,
+        uniqueVaultCount: uniqueVaults.length,
+        topVault: vaultPoints[0]
+      };
+    }
+  }), [allPoints]); // Only recalculate when allPoints changes
+  
 
   const analyticsData = React.useMemo(() => {
     return _(allPoints)
@@ -407,6 +481,7 @@ const OrigamiPoints = () => {
 
         {activeTab === 'analytics' && (
           <div className="space-y-6">
+            {/* Lifetime Stats */}
             <Card className="hover:shadow-md transition-shadow p-[1px] overflow-hidden rounded-[28px]" 
                   style={{ 
                     padding: '1.5px',
@@ -416,9 +491,98 @@ const OrigamiPoints = () => {
                     overflow: 'hidden'                  
                   }}>
               <div className="bg-white p-6 rounded-[27px]">
-                <h3 className="text-lg font-semibold mb-4">Daily Active Addresses</h3>
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-semibold">Lifetime Stats</h3>
+                  <div className="w-1/3">
+                    <Input
+                      placeholder="Search address stats..."
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      className="w-full border rounded-[28px] px-4 py-2"
+                    />
+                  </div>
+                </div>
+
+                {!address ? (
+                  // Default view - Global stats
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-gray-50 rounded-xl">
+                      <p className="text-sm text-gray-500">Total Points Distributed</p>
+                      <p className="text-xl font-semibold">{formatNumber(totalPoints)}</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-xl">
+                      <p className="text-sm text-gray-500">Active Addresses</p>
+                      <p className="text-xl font-semibold">{activeAddressCounts.active}/{activeAddressCounts.total}</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-xl">
+                      <p className="text-sm text-gray-500">Total Vaults</p>
+                      <p className="text-xl font-semibold">{uniqueVaults.length}</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-xl">
+                      <p className="text-sm text-gray-500">Season 1 Points</p>
+                      <p className="text-xl font-semibold">{formatNumber(s1Points)}</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-xl">
+                      <p className="text-sm text-gray-500">Season 2 Points</p>
+                      <p className="text-xl font-semibold">{formatNumber(s2Points)}</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-xl">
+                      <p className="text-sm text-gray-500">Yesterday's Points</p>
+                      <p className="text-xl font-semibold">{formatNumber(yesterdayPoints)}</p>
+                    </div>
+                  </div>
+                ) : (
+                  // Address-specific stats view
+                  (() => {
+                    const stats = memoizedHelpers.getUserLifetimeStats(address);
+                    if (!stats) return <p className="text-gray-500">No data found for this address</p>;
+                    
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="p-4 bg-gray-50 rounded-xl">
+                          <p className="text-sm text-gray-500">Total Points</p>
+                          <p className="text-xl font-semibold">{formatNumber(stats.totalPoints)}</p>
+                        </div>
+                        <div className="p-4 bg-gray-50 rounded-xl">
+                          <p className="text-sm text-gray-500">Season 1 Points</p>
+                          <p className="text-xl font-semibold">{formatNumber(stats.s1Points)}</p>
+                        </div>
+                        <div className="p-4 bg-gray-50 rounded-xl">
+                          <p className="text-sm text-gray-500">Season 2 Points</p>
+                          <p className="text-xl font-semibold">{formatNumber(stats.s2Points)}</p>
+                        </div>
+                        <div className="p-4 bg-gray-50 rounded-xl">
+                          <p className="text-sm text-gray-500">Longest Points Streak</p>
+                          <p className="text-xl font-semibold">{stats.longestStreak} days</p>
+                        </div>
+                        <div className="p-4 bg-gray-50 rounded-xl">
+                          <p className="text-sm text-gray-500">Unique Vaults Used</p>
+                          <p className="text-xl font-semibold">{stats.uniqueVaultCount}</p>
+                        </div>
+                        <div className="p-4 bg-gray-50 rounded-xl">
+                          <p className="text-sm text-gray-500">Top Performing Vault</p>
+                          <p className="text-lg font-semibold truncate">{stats.topVault.vault}</p>
+                          <p className="text-sm text-gray-500">{formatNumber(stats.topVault.points)} points</p>
+                        </div>
+                      </div>
+                    );
+                  })()
+                )}
+              </div>
+            </Card>
+
+            {/* Daily Active Users */}
+            <Card className="hover:shadow-md transition-shadow p-[1px] overflow-hidden rounded-[28px]" 
+                  style={{ 
+                    padding: '1.5px',
+                    borderRadius: '32px',
+                    background: getRandomGradient(),
+                    isolation: 'isolate',
+                    overflow: 'hidden'                  
+                  }}>
+              <div className="bg-white p-6 rounded-[27px]">
+                <h3 className="text-lg font-semibold mb-4">Daily Active Users</h3>
                 
-                {/* Main Chart */}
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={filteredData}>
@@ -446,16 +610,13 @@ const OrigamiPoints = () => {
                   </ResponsiveContainer>
                 </div>
 
-                {/* Mini Chart + Slider */}
                 <div className="mt-6 border-t pt-4">
                   <div className="h-8 relative">
-                    {/* Date Labels */}
                     <div className="absolute -top-6 left-0 right-0 flex justify-between text-xs text-gray-500">
                       <span>{analyticsData[0]?.date ? new Date(analyticsData[0].date).toLocaleDateString() : ''}</span>
                       <span>{analyticsData[analyticsData.length - 1]?.date ? new Date(analyticsData[analyticsData.length - 1].date).toLocaleDateString() : ''}</span>
                     </div>
 
-                    {/* Slider Overlay */}
                     <div className="absolute inset-0 flex items-center">
                       <Slider
                         defaultValue={[0, 100]}
@@ -482,7 +643,7 @@ const OrigamiPoints = () => {
               </div>
             </Card>
 
-            {/* Whale Analysis Scatter Chart 
+            {/* Vault Performance */}
             <Card className="hover:shadow-md transition-shadow p-[1px] overflow-hidden rounded-[28px]" 
                   style={{ 
                     padding: '1.5px',
@@ -492,61 +653,48 @@ const OrigamiPoints = () => {
                     overflow: 'hidden'                  
                   }}>
               <div className="bg-white p-6 rounded-[27px]">
-                <h3 className="text-lg font-semibold mb-4">Whale Analysis: Vaults vs Points</h3>
-                
-                <div className="h-80">
+                <h3 className="text-lg font-semibold mb-4">Vault Performance</h3>
+                <div className="h-[600px]"> 
                   <ResponsiveContainer width="100%" height="100%">
-                    <ScatterChart data={getWhaleAnalysisData()}>
+                    <BarChart data={memoizedHelpers.getVaultPerformanceData()} layout="vertical" margin={{ left: 200, right: 50 }}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        type="number" 
-                        dataKey="vaultCount" 
-                        name="Number of Vaults" 
-                        label={{ value: 'Number of Vaults', position: 'insideBottom', offset: -10 }}
-                      />
+                      <XAxis type="number" hide={true} /> {/* Hide the axis numbers */}
                       <YAxis 
-                        type="number" 
-                        dataKey="totalPoints" 
-                        name="Total Points" 
-                        label={{ value: 'Total Points', angle: -90, position: 'insideLeft' }}
-                      />
-                      <ZAxis 
                         type="category" 
-                        dataKey="address" 
-                        name="Address"
+                        dataKey="vault" 
+                        tick={{ fontSize: 12 }}
                       />
-                      <Tooltip 
-                        cursor={{ strokeDasharray: '3 3' }}
-                        formatter={(value, name, props) => {
-                          if (name === 'Total Points') {
-                            return new Intl.NumberFormat().format(value);
-                          }
-                          return value;
-                        }}
-                        labelFormatter={(value) => `Address: ${value}`}
-                      />
-                      <Scatter 
-                        name="Whale Analysis" 
-                        data={getWhaleAnalysisData()} 
+                      <Tooltip formatter={(value) => new Intl.NumberFormat().format(value)} />
+                      <Bar 
+                        dataKey="totalPoints" 
                         fill="#8884d8"
-                        fillOpacity={0.7}
+                        label={(props) => {
+                          const { value, x, y, width, height } = props;
+                          return (
+                            <text
+                              x={x + width + 10}
+                              y={y + height / 2}
+                              dy={4}
+                              textAnchor="start"
+                              fill="#666"
+                              fontSize={12}
+                            >
+                              {new Intl.NumberFormat('en-US', {
+                                notation: 'compact',
+                                maximumFractionDigits: 1
+                              }).format(value)}
+                            </text>
+                          );
+                        }}
                       />
-                    </ScatterChart>
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
-
-                <div className="mt-4 text-sm text-gray-500">
-                  <p>Insights:</p>
-                  <ul className="list-disc list-inside">
-                    <li>Each point represents an address</li>
-                    <li>X-axis shows the number of vaults an address is involved in</li>
-                    <li>Y-axis shows the total points earned by that address</li>
-                  </ul>
-                </div>
               </div>
-            </Card> */}
-          </div>
+            </Card>
+            </div>
         )}
+
 
         {/* Leaderboard Content */}
         {activeTab === 'leaderboard' && (
