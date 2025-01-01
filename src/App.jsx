@@ -537,34 +537,53 @@ const OrigamiPoints = () => {
                     const stats = memoizedHelpers.getUserLifetimeStats(address);
                     if (!stats) return <p className="text-gray-500">No data found for this address</p>;
                     
+                    // Find rank and next rank details
+                    const currentRank = aggregatedData.findIndex(item => 
+                      item.address.toLowerCase() === address.toLowerCase()
+                    ) + 1;
+                    
+                    let pointsToNextRank = 0;
+                    if (currentRank > 1) {
+                      const nextRankPoints = aggregatedData[currentRank - 2]?.totalPoints || 0;
+                      pointsToNextRank = Math.max(0, nextRankPoints - stats.totalPoints);
+                    }
+
                     return (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="p-4 bg-gray-50 rounded-xl">
-                          <p className="text-sm text-gray-500">Total Points</p>
-                          <p className="text-xl font-semibold">{formatNumber(stats.totalPoints)}</p>
+                      <>
+                        <div className="mb-4 text-gray-600">
+                          <span className="font-medium">#{currentRank} Rank</span>
+                          {pointsToNextRank > 0 && (
+                            <span className="ml-2">| +{formatNumber(pointsToNextRank)} points until next rank</span>
+                          )}
                         </div>
-                        <div className="p-4 bg-gray-50 rounded-xl">
-                          <p className="text-sm text-gray-500">Season 1 Points</p>
-                          <p className="text-xl font-semibold">{formatNumber(stats.s1Points)}</p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="p-4 bg-gray-50 rounded-xl">
+                            <p className="text-sm text-gray-500">Total Points</p>
+                            <p className="text-xl font-semibold">{formatNumber(stats.totalPoints)}</p>
+                          </div>
+                          <div className="p-4 bg-gray-50 rounded-xl">
+                            <p className="text-sm text-gray-500">Season 1 Points</p>
+                            <p className="text-xl font-semibold">{formatNumber(stats.s1Points)}</p>
+                          </div>
+                          <div className="p-4 bg-gray-50 rounded-xl">
+                            <p className="text-sm text-gray-500">Season 2 Points</p>
+                            <p className="text-xl font-semibold">{formatNumber(stats.s2Points)}</p>
+                          </div>
+                          <div className="p-4 bg-gray-50 rounded-xl">
+                            <p className="text-sm text-gray-500">Longest Points Streak</p>
+                            <p className="text-xl font-semibold">{stats.longestStreak} days</p>
+                          </div>
+                          <div className="p-4 bg-gray-50 rounded-xl">
+                            <p className="text-sm text-gray-500">Unique Vaults Used</p>
+                            <p className="text-xl font-semibold">{stats.uniqueVaultCount}</p>
+                          </div>
+                          <div className="p-4 bg-gray-50 rounded-xl">
+                            <p className="text-sm text-gray-500">Top Performing Vault</p>
+                            <p className="text-lg font-semibold truncate">{stats.topVault.vault}</p>
+                            <p className="text-sm text-gray-500">{formatNumber(stats.topVault.points)} points</p>
+                          </div>
                         </div>
-                        <div className="p-4 bg-gray-50 rounded-xl">
-                          <p className="text-sm text-gray-500">Season 2 Points</p>
-                          <p className="text-xl font-semibold">{formatNumber(stats.s2Points)}</p>
-                        </div>
-                        <div className="p-4 bg-gray-50 rounded-xl">
-                          <p className="text-sm text-gray-500">Longest Points Streak</p>
-                          <p className="text-xl font-semibold">{stats.longestStreak} days</p>
-                        </div>
-                        <div className="p-4 bg-gray-50 rounded-xl">
-                          <p className="text-sm text-gray-500">Unique Vaults Used</p>
-                          <p className="text-xl font-semibold">{stats.uniqueVaultCount}</p>
-                        </div>
-                        <div className="p-4 bg-gray-50 rounded-xl">
-                          <p className="text-sm text-gray-500">Top Performing Vault</p>
-                          <p className="text-lg font-semibold truncate">{stats.topVault.vault}</p>
-                          <p className="text-sm text-gray-500">{formatNumber(stats.topVault.points)} points</p>
-                        </div>
-                      </div>
+                      </>
                     );
                   })()
                 )}
