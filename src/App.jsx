@@ -227,6 +227,48 @@ const OrigamiPoints = () => {
         }))
         .orderBy(['points'], ['desc'])
         .value();
+      
+      const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        yesterday.setHours(0, 0, 0, 0);
+
+      const yesterdayPoints = _.sumBy(
+          userPoints.filter(item => {
+            const itemDate = new Date(item.timestamp);
+            return itemDate.toDateString() === yesterday.toDateString();
+          }),
+          'allocation'
+        );
+
+        // Calculate tomorrow's expected rank
+      const currentTotals = _(allPoints)
+          .groupBy('holder_address')
+          .mapValues(items => _.sumBy(items, 'allocation'))
+          .value();
+
+      const yesterdayPointsByAddress = _(allPoints)
+          .filter(item => {
+            const itemDate = new Date(item.timestamp);
+            return itemDate.toDateString() === yesterday.toDateString();
+          })
+          .groupBy('holder_address')
+          .mapValues(items => _.sumBy(items, 'allocation'))
+          .value();
+
+      const tomorrowTotals = {};
+        for (const [address, total] of Object.entries(currentTotals)) {
+          tomorrowTotals[address] = total + (yesterdayPointsByAddress[address] || 0);
+        }
+
+      const sortedTomorrowRanks = _(tomorrowTotals)
+          .map((total, address) => ({ address, total }))
+          .orderBy(['total'], ['desc'])
+          .value();
+
+      const tomorrowRank = sortedTomorrowRanks.findIndex(item => 
+          item.address.toLowerCase() === userAddress.toLowerCase()
+        ) + 1;
+
 
       const pointsByDay = _(userPoints)
         .groupBy(item => new Date(item.timestamp).toISOString().split('T')[0])
@@ -255,7 +297,9 @@ const OrigamiPoints = () => {
         s2Points,
         longestStreak: maxStreak + 1,
         uniqueVaultCount: uniqueVaults.length,
-        topVault: vaultPoints[0]
+        topVault: vaultPoints[0],
+        yesterdayPoints,
+        tomorrowRank
       };
     }
   }), [allPoints]); // Only recalculate when allPoints changes
@@ -554,6 +598,16 @@ const OrigamiPoints = () => {
                           <span className="font-medium">#{currentRank} Rank</span>
                           {pointsToNextRank > 0 && (
                             <span className="ml-2">| +{formatNumber(pointsToNextRank)} points until next rank</span>
+                          )}
+                          {stats.tomorrowRank && (
+                            <span className="ml-2">| Expected Rank Tomorrow #{stats.tomorrowRank} 
+                              {stats.tomorrowRank < currentRank ? 
+                                ` (↑${currentRank - stats.tomorrowRank})` : 
+                                stats.tomorrowRank > currentRank ? 
+                                  ` (↓${stats.tomorrowRank - currentRank})` : 
+                                  ' (=)'
+                              }
+                            </span>
                           )}
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
