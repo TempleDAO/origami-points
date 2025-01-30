@@ -107,9 +107,7 @@ const OrigamiPoints = () => {
   } = useQuery({
     queryKey: ['points-data'],
     queryFn: async () => {
-      const response = await fetch(
-        'https://origami.automation-templedao.link/points_allocation?holder_address=ilike.*'
-      );
+      const response = await fetch('/api/origami-points-allocations');
       if (!response.ok) {
         throw new Error('Failed to fetch points data');
       }

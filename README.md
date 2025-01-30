@@ -45,4 +45,28 @@ The dashboard includes multiple visualization types:
 
 ## Development
 
-Created by [unhappyben](https://twitter.com/unhappyben)
+in local dev:
+
+Install dependencies:
+
+```
+yarn
+```
+
+Start the local vercel dev server:
+
+```
+yarn vercel dev --debug
+```
+
+Start the vite dev server:
+
+```
+yarn dev
+```
+
+and open the UI at: http://localhost:5173/
+
+## Credits
+
+Initially created by [unhappyben](https://twitter.com/unhappyben)
