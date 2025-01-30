@@ -393,6 +393,11 @@ const OrigamiPoints = () => {
           >
             Made by unhappyben
           </a>
+          <div
+            className="text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            ... and the origami team
+          </div>
         </div>
 
         {/* Stats Box */}
