@@ -107,7 +107,12 @@ const OrigamiPoints = () => {
   } = useQuery({
     queryKey: ['points-data'],
     queryFn: async () => {
-      const response = await fetch('/api/origami-points-allocations');
+      const response = await fetch('/api/origami-points-allocations', {
+        headers: {
+          "Accept": "application/json",
+          "Accept-Encoding": "gzip",
+        }
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch points data');
       }
