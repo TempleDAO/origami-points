@@ -390,19 +390,6 @@ const OrigamiPoints = () => {
               className="w-full h-auto"
             />
           </div>
-          <a 
-            href="https://twitter.com/unhappyben" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-gray-600 hover:text-gray-800 transition-colors"
-          >
-            Made by unhappyben
-          </a>
-          <div
-            className="text-gray-600 hover:text-gray-800 transition-colors"
-          >
-            ... and the origami team
-          </div>
         </div>
 
         {/* Stats Box */}
