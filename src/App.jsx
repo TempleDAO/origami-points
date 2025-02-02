@@ -50,7 +50,7 @@ const getRandomGradient = () => {
   return gradients[Math.floor(Math.random() * gradients.length)];
 };
 
-const POINTS_ALLOCATIONS_BLOB_URL = 'https://4lmuyebzmtwjr6vy.public.blob.vercel-storage.com/points-allocations.json';
+const POINTS_ALLOCATIONS_BLOB_URL = 'https://5qlianxz5pithtal.public.blob.vercel-storage.com/points-allocations.json';
 
 const OrigamiPoints = () => {
   const TEMPLE_ADDRESSES = [
