@@ -50,6 +50,8 @@ const getRandomGradient = () => {
   return gradients[Math.floor(Math.random() * gradients.length)];
 };
 
+const POINTS_ALLOCATIONS_BLOB_URL = 'https://4lmuyebzmtwjr6vy.public.blob.vercel-storage.com/points-allocations.json';
+
 const OrigamiPoints = () => {
   const TEMPLE_ADDRESSES = [
     "0x0591926d5d3b9Cc48ae6eFB8Db68025ddc3adFA5".toLowerCase(),
@@ -107,7 +109,7 @@ const OrigamiPoints = () => {
   } = useQuery({
     queryKey: ['points-data'],
     queryFn: async () => {
-      const response = await fetch('/api/origami-points-allocations', {
+      const response = await fetch(POINTS_ALLOCATIONS_BLOB_URL, {
         headers: {
           "Accept": "application/json",
           "Accept-Encoding": "gzip",
