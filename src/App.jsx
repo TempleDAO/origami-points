@@ -74,10 +74,7 @@ const OrigamiPoints = () => {
       return true;
     });
   
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    yesterday.setHours(0, 0, 0, 0);
-    
+    const yesterday = getLastTimestamp(allPoints);
     const yesterdayPoints = _.sumBy(
       filteredData.filter(item => {
         const itemDate = new Date(item.timestamp);
@@ -90,7 +87,7 @@ const OrigamiPoints = () => {
     const s2Points = getPeriodPoints(filteredData, 'P-6');
     const totalPoints = s1Points + s2Points;
   
-    return { yesterdayPoints, s1Points, s2Points, totalPoints };
+    return { yesterday, yesterdayPoints, s1Points, s2Points, totalPoints };
   };
 
   const [sliderValue, setSliderValue] = useState([0, 100]);
@@ -125,6 +122,7 @@ const OrigamiPoints = () => {
   const {
     uniqueVaults,
     totalPoints,
+    yesterday,
     yesterdayPoints,
     s1Points,
     s2Points
@@ -135,6 +133,7 @@ const OrigamiPoints = () => {
     return {
       uniqueVaults: vaults,
       totalPoints: points.totalPoints,
+      yesterday: points.yesterday,
       yesterdayPoints: points.yesterdayPoints,
       s1Points: points.s1Points,
       s2Points: points.s2Points
@@ -146,8 +145,7 @@ const OrigamiPoints = () => {
     const activeAddresses = _.uniq(
       allPoints.filter(item => {
         const lastUpdate = new Date(item.timestamp);
-        const today = new Date();
-        return lastUpdate.toDateString() === today.toDateString();
+        return lastUpdate.toDateString() === yesterday.toDateString();
       }).map(item => item.holder_address)
     );
     
@@ -233,9 +231,7 @@ const OrigamiPoints = () => {
         .orderBy(['points'], ['desc'])
         .value();
       
-      const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        yesterday.setHours(0, 0, 0, 0);
+      const yesterday = getLastTimestamp(allPoints);
 
       const yesterdayPoints = _.sumBy(
           userPoints.filter(item => {
@@ -405,7 +401,7 @@ const OrigamiPoints = () => {
             <div className="p-[0.5px] rounded-[24px] max-w-[300px] w-full mx-auto" style={{ background: 'linear-gradient(to right, #FF4D4D, #FF66FF)' }}>
               <div className="bg-white py-4 px-3 rounded-[24px] h-full flex flex-col justify-center items-center">
                 <p className="text-lg font-semibold">{formatNumber(yesterdayPoints)}</p>
-                <p className="text-sm text-gray-500">Yesterday Points</p>
+                <p className="text-sm text-gray-500">Last Points Allocation</p>
               </div>
             </div>
 
@@ -498,7 +494,7 @@ const OrigamiPoints = () => {
                 alt="Active today"
                 className="w-4 h-4"
               />
-              <span>{activeAddressCounts.active}/{activeAddressCounts.total} addresses received points today</span>
+              <span>{activeAddressCounts.active}/{activeAddressCounts.total} addresses received points on last allocation date {yesterday ? "(" + yesterday.toISOString().substring(0,10) + ")" : ""}</span>
             </div>
             <div className="flex items-center gap-6">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -880,5 +876,9 @@ const OrigamiPoints = () => {
     </div>
   );
 };
+
+function getLastTimestamp(allPoints) {
+  return _.max(allPoints.map(p => new Date(p.timestamp)));
+}
 
 export default OrigamiPoints;
