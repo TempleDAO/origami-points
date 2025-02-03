@@ -83,8 +83,8 @@ const OrigamiPoints = () => {
       'allocation'
     );
   
-    const s1Points = getPeriodPoints(filteredData, 'P-1') + getPeriodPoints(filteredData, 'P-2');
-    const s2Points = getPeriodPoints(filteredData, 'P-6');
+    const s1Points = getPeriodPoints(filteredData, ORI_S1);
+    const s2Points = getPeriodPoints(filteredData, ORI_S2);
     const totalPoints = s1Points + s2Points;
   
     return { yesterday, yesterdayPoints, s1Points, s2Points, totalPoints };
@@ -116,7 +116,10 @@ const OrigamiPoints = () => {
       if (!response.ok) {
         throw new Error('Failed to fetch points data');
       }
-      return response.json();
+      const jv = await response.json()
+      return jv.filter(
+        item => [ORI_S1,ORI_S2].includes(item.points_id)
+      );
     }
   });
   
@@ -232,11 +235,11 @@ const OrigamiPoints = () => {
       if (userPoints.length === 0) return null;
 
       const s1Points = _.sumBy(
-        userPoints.filter(item => ['P-1', 'P-2'].includes(item.points_id)),
+        userPoints.filter(item => item.points_id === ORI_S1),
         'allocation'
       );
       const s2Points = _.sumBy(
-        userPoints.filter(item => item.points_id === 'P-6'),
+        userPoints.filter(item => item.points_id === ORI_S2),
         'allocation'
       );
 
@@ -915,5 +918,8 @@ const OrigamiPoints = () => {
 function getLastTimestamp(allPoints) {
   return _.max(allPoints.map(p => new Date(p.timestamp)));
 }
+
+const ORI_S1 = 'P-5';
+const ORI_S2 = 'P-6';
 
 export default OrigamiPoints;
