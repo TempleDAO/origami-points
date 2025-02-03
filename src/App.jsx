@@ -94,6 +94,7 @@ const OrigamiPoints = () => {
   const [dateRange, setDateRange] = useState([null, null]);
   const [address, setAddress] = useState('');
   const [selectedVault, setSelectedVault] = useState('all');
+  const [selectedTimeRange, setSelectedTimeRange] = useState('last7');
   const [expandedAddresses, setExpandedAddresses] = useState(new Set());
   const [hideTempleAddresses, setHideTempleAddresses] = useState(false);
   const [hideOrigamiAddresses, setHideOrigamiAddresses] = useState(false);
@@ -157,10 +158,29 @@ const OrigamiPoints = () => {
 
   const aggregatedData = useMemo(() => {
     const today = new Date().toDateString();
-    const filteredData = selectedVault === 'all' 
-      ? allPoints 
-      : allPoints.filter(item => item.token_address === selectedVault);
-  
+
+    function matchVault(item) {
+      return selectedVault === 'all' || item.token_address === selectedVault;
+    }
+
+    function matchTimeRange(item) {
+      if (selectedTimeRange === 'all' || yesterday === undefined) {
+        return true;
+      }
+      if (selectedTimeRange === 'last7') {
+        return new Date(item.timestamp) >= new Date(yesterday.getTime() - 7 * 1000 * 3600 * 24);
+      }
+      if (selectedTimeRange === 'last30') {
+        return new Date(item.timestamp) >= new Date(yesterday.getTime() - 30 * 1000 * 3600 * 24);
+      }
+      return false;
+    }
+
+    const filteredData = allPoints
+      .filter(matchVault)
+      .filter(matchTimeRange)
+      ;
+
     return _(filteredData)
       .groupBy('holder_address')
       .map((items, address) => {
@@ -187,7 +207,7 @@ const OrigamiPoints = () => {
       })
       .orderBy(['totalPoints'], ['desc'])
       .value();
-  }, [allPoints, selectedVault, hideTempleAddresses, hideOrigamiAddresses]);
+  }, [allPoints, selectedVault, selectedTimeRange, hideTempleAddresses, hideOrigamiAddresses]);
 
   const memoizedHelpers = useMemo(() => ({
     getVaultPerformanceData: () => {
@@ -452,15 +472,19 @@ const OrigamiPoints = () => {
         {/* Search and Filter Controls */}
         {activeTab === 'leaderboard' && (
           <div className="mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-[1px] rounded-[28px]" style={{ background: 'linear-gradient(to right, #4D80FF, #66FFFF)' }}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-[1px] rounded-[28px]" style={{ background: 'linear-gradient(to right, #66FFB3, #66FF80)' }}>
                 <div className="bg-white rounded-[28px]">
-                  <Input
-                    placeholder="Search address"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    className="w-full border-none focus:ring-0 rounded-[28px] px-4 py-3"
-                  />
+                  <Select value={selectedTimeRange} onValueChange={setSelectedTimeRange}>
+                    <SelectTrigger className="w-full border-none focus:ring-0 rounded-[28px] px-4 py-3">
+                      <SelectValue placeholder="Last 7 days" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="last7">Last 7 days</SelectItem>
+                      <SelectItem value="last30">Last 30 days</SelectItem>
+                      <SelectItem value="all">All Time</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -479,6 +503,17 @@ const OrigamiPoints = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              <div className="p-[1px] rounded-[28px]" style={{ background: 'linear-gradient(to right, #4D80FF, #66FFFF)' }}>
+                <div className="bg-white rounded-[28px]">
+                  <Input
+                    placeholder="Search address"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="w-full border-none focus:ring-0 rounded-[28px] px-4 py-3"
+                  />
                 </div>
               </div>
             </div>
