@@ -184,7 +184,7 @@ const OrigamiPoints = () => {
       .filter(matchTimeRange)
       ;
 
-    return _(filteredData)
+    const aggregatedData = _(filteredData)
       .groupBy('holder_address')
       .map((items, address) => {
         const vaults = _(items)
@@ -210,6 +210,9 @@ const OrigamiPoints = () => {
       })
       .orderBy(['totalPoints'], ['desc'])
       .value();
+
+      aggregatedData.sort( (i1,i2) => i2.totalPoints - i1.totalPoints );
+      return aggregatedData.map( (item,i) => ({...item, rank: i+1}) );
   }, [allPoints, selectedVault, selectedTimeRange, hideTempleAddresses, hideOrigamiAddresses]);
 
   const memoizedHelpers = useMemo(() => ({
@@ -826,7 +829,7 @@ const OrigamiPoints = () => {
                 if (hideOrigamiAddresses && ORIGAMI_ADDRESSES.includes(addressLower)) return false;
                 return !address || addressLower.includes(address.toLowerCase());
               })
-              .map((item, index) => (
+              .map((item) => (
                 <Card 
                   key={item.address} 
                   className="hover:shadow-md transition-shadow p-[1px] overflow-hidden rounded-[28px]" 
@@ -850,7 +853,7 @@ const OrigamiPoints = () => {
                       onClick={() => toggleAddressExpansion(item.address)}
                     >
                       <div className="flex gap-4 items-center">
-                        <span className="text-gray-400 w-8">#{index + 1}</span>
+                        <span className="text-gray-400 w-8">#{item.rank}</span>
                         <div>
                           <div className="flex flex-col gap-1">
                             <div className="flex items-center gap-2">
