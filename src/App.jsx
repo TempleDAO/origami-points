@@ -445,6 +445,8 @@ const OrigamiPoints = () => {
         </div>
 
         {/* Tab Navigation */}
+        {/*
+            only show leaderboard
         <div className="mb-6">
           <div className="p-[1px] rounded-[28px] bg-gradient-to-r from-blue-400 to-purple-400">
             <div className="bg-white rounded-[28px] p-1">
@@ -471,6 +473,7 @@ const OrigamiPoints = () => {
             </div>
           </div>
         </div>
+        */}
 
         {/* Search and Filter Controls */}
         {activeTab === 'leaderboard' && (
@@ -816,6 +819,7 @@ const OrigamiPoints = () => {
             )}
             
             {!isLoading && aggregatedData
+              .slice(0, 100)
               .filter(item => {
                 const addressLower = item.address.toLowerCase();
                 if (hideTempleAddresses && TEMPLE_ADDRESSES.includes(addressLower)) return false;
