@@ -822,13 +822,13 @@ const OrigamiPoints = () => {
             )}
             
             {!isLoading && aggregatedData
-              .slice(0, 100)
               .filter(item => {
                 const addressLower = item.address.toLowerCase();
                 if (hideTempleAddresses && TEMPLE_ADDRESSES.includes(addressLower)) return false;
                 if (hideOrigamiAddresses && ORIGAMI_ADDRESSES.includes(addressLower)) return false;
                 return !address || addressLower.includes(address.toLowerCase());
               })
+              .slice(0, 100)
               .map((item) => (
                 <Card 
                   key={item.address} 
