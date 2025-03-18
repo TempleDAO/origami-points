@@ -85,9 +85,10 @@ const OrigamiPoints = () => {
   
     const s1Points = getPeriodPoints(filteredData, ORI_S1);
     const s2Points = getPeriodPoints(filteredData, ORI_S2);
-    const totalPoints = s1Points + s2Points;
+    const s3Points = getPeriodPoints(filteredData, ORI_S3);
+    const totalPoints = s1Points + s2Points + s3Points;
   
-    return { yesterday, yesterdayPoints, s1Points, s2Points, totalPoints };
+    return { yesterday, yesterdayPoints, s1Points, s2Points, s3Points, totalPoints };
   };
 
   const [sliderValue, setSliderValue] = useState([0, 100]);
@@ -118,7 +119,7 @@ const OrigamiPoints = () => {
       }
       const jv = await response.json()
       return jv.filter(
-        item => [ORI_S1,ORI_S2].includes(item.points_id)
+        item => [ORI_S1,ORI_S2,ORI_S3].includes(item.points_id)
       );
     }
   });
@@ -129,7 +130,8 @@ const OrigamiPoints = () => {
     yesterday,
     yesterdayPoints,
     s1Points,
-    s2Points
+    s2Points,
+    s3Points
   } = useMemo(() => {
     const vaults = _.uniq(allPoints.map(item => item.token_address));
     const points = calculatePoints(allPoints);
@@ -140,7 +142,8 @@ const OrigamiPoints = () => {
       yesterday: points.yesterday,
       yesterdayPoints: points.yesterdayPoints,
       s1Points: points.s1Points,
-      s2Points: points.s2Points
+      s2Points: points.s2Points,
+      s3Points: points.s3Points
     };
   }, [allPoints, hideTempleAddresses, hideOrigamiAddresses]);
 
@@ -242,9 +245,14 @@ const OrigamiPoints = () => {
         'allocation'
       );
       const s2Points = _.sumBy(
-        userPoints.filter(item => item.points_id === ORI_S2),
-        'allocation'
+          userPoints.filter(item => item.points_id === ORI_S2),
+          'allocation'
       );
+      const s3Points = _.sumBy(
+          userPoints.filter(item => item.points_id === ORI_S3),
+          'allocation'
+      );
+
 
       const uniqueVaults = _.uniqBy(userPoints, 'token_address');
       
@@ -322,6 +330,7 @@ const OrigamiPoints = () => {
         totalPoints: _.sumBy(userPoints, 'allocation'),
         s1Points,
         s2Points,
+        s3Points,
         longestStreak: maxStreak + 1,
         uniqueVaultCount: uniqueVaults.length,
         topVault: vaultPoints[0],
@@ -416,7 +425,7 @@ const OrigamiPoints = () => {
 
         {/* Stats Box */}
         <div className="mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="p-[0.5px] rounded-[24px] max-w-[300px] w-full mx-auto" style={{ background: 'linear-gradient(to right, #FF8066, #FF5252)' }}>
               <div className="bg-white py-4 px-3 rounded-[24px] h-full flex flex-col justify-center items-center">
                 <p className="text-xl font-semibold">{formatNumber(totalPoints)}</p>
@@ -442,6 +451,13 @@ const OrigamiPoints = () => {
               <div className="bg-white py-4 px-3 rounded-[24px] h-full flex flex-col justify-center items-center">
                 <p className="text-lg font-semibold">{formatNumber(s2Points)}</p>
                 <p className="text-sm text-gray-500">S2 Points</p>
+              </div>
+            </div>
+
+            <div className="p-[0.5px] rounded-[24px] max-w-[300px] w-full mx-auto" style={{ background: 'linear-gradient(to right, #B366FF, #6680FF)' }}>
+              <div className="bg-white py-4 px-3 rounded-[24px] h-full flex flex-col justify-center items-center">
+                <p className="text-lg font-semibold">{formatNumber(s3Points)}</p>
+                <p className="text-sm text-gray-500">S3 Points</p>
               </div>
             </div>
           </div>
@@ -608,6 +624,10 @@ const OrigamiPoints = () => {
                       <p className="text-xl font-semibold">{formatNumber(s2Points)}</p>
                     </div>
                     <div className="p-4 bg-gray-50 rounded-xl">
+                      <p className="text-sm text-gray-500">Season 3 Points</p>
+                      <p className="text-xl font-semibold">{formatNumber(s3Points)}</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-xl">
                       <p className="text-sm text-gray-500">Yesterday's Points</p>
                       <p className="text-xl font-semibold">{formatNumber(yesterdayPoints)}</p>
                     </div>
@@ -659,6 +679,10 @@ const OrigamiPoints = () => {
                           <div className="p-4 bg-gray-50 rounded-xl">
                             <p className="text-sm text-gray-500">Season 2 Points</p>
                             <p className="text-xl font-semibold">{formatNumber(stats.s2Points)}</p>
+                          </div>
+                          <div className="p-4 bg-gray-50 rounded-xl">
+                            <p className="text-sm text-gray-500">Season 3 Points</p>
+                            <p className="text-xl font-semibold">{formatNumber(stats.s3Points)}</p>
                           </div>
                           <div className="p-4 bg-gray-50 rounded-xl">
                             <p className="text-sm text-gray-500">Longest Points Streak</p>
@@ -928,5 +952,6 @@ function getLastTimestamp(allPoints) {
 
 const ORI_S1 = 'P-5';
 const ORI_S2 = 'P-6';
+const ORI_S3 = 'P-7';
 
 export default OrigamiPoints;
