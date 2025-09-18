@@ -460,14 +460,14 @@ const OrigamiPoints = () => {
             {/*
                 only show leaderboard
             <div className="mb-6">
-              <div className="p-[1px] rounded-[28px] bg-gradient-to-r from-blue-400 to-purple-400">
+              <div className="p-px rounded-[28px] bg-linear-to-r from-blue-400 to-purple-400">
                 <div className="bg-white rounded-[28px] p-1">
                   <div className="flex space-x-2">
                     <button
                       onClick={() => setActiveTab('leaderboard')}
                       className={`flex-1 px-4 py-2 rounded-[24px] text-sm font-medium transition-colors
                         ${activeTab === 'leaderboard' 
-                          ? 'bg-gradient-to-r from-blue-400 to-purple-400 text-white' 
+                          ? 'bg-linear-to-r from-blue-400 to-purple-400 text-white' 
                           : 'text-gray-600 hover:bg-gray-50'}`}
                     >
                       Leaderboard
@@ -476,7 +476,7 @@ const OrigamiPoints = () => {
                       onClick={() => setActiveTab('analytics')}
                       className={`flex-1 px-4 py-2 rounded-[24px] text-sm font-medium transition-colors
                         ${activeTab === 'analytics' 
-                          ? 'bg-gradient-to-r from-blue-400 to-purple-400 text-white' 
+                          ? 'bg-linear-to-r from-blue-400 to-purple-400 text-white' 
                           : 'text-gray-600 hover:bg-gray-50'}`}
                     >
                       Analytics
@@ -491,7 +491,7 @@ const OrigamiPoints = () => {
             {activeTab === 'leaderboard' && (
               <div className="mb-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="p-[1px] rounded-[28px]" style={{ background: 'linear-gradient(to right, #66FFB3, #66FF80)' }}>
+                  <div className="p-px rounded-[28px]" style={{ background: 'linear-gradient(to right, #66FFB3, #66FF80)' }}>
                     <div className="bg-white rounded-[28px]">
                       <Select value={selectedTimeRange} onValueChange={setSelectedTimeRange}>
                         <SelectTrigger className="w-full border-none focus:ring-0 rounded-[28px] px-4 py-3">
@@ -506,7 +506,7 @@ const OrigamiPoints = () => {
                     </div>
                   </div>
 
-                  <div className="p-[1px] rounded-[28px]" style={{ background: 'linear-gradient(to right, #66FFB3, #66FF80)' }}>
+                  <div className="p-px rounded-[28px]" style={{ background: 'linear-gradient(to right, #66FFB3, #66FF80)' }}>
                     <div className="bg-white rounded-[28px]">
                       <Select value={selectedVault} onValueChange={setSelectedVault}>
                         <SelectTrigger className="w-full border-none focus:ring-0 rounded-[28px] px-4 py-3">
@@ -524,7 +524,7 @@ const OrigamiPoints = () => {
                     </div>
                   </div>
 
-                  <div className="p-[1px] rounded-[28px]" style={{ background: 'linear-gradient(to right, #4D80FF, #66FFFF)' }}>
+                  <div className="p-px rounded-[28px]" style={{ background: 'linear-gradient(to right, #4D80FF, #66FFFF)' }}>
                     <div className="bg-white rounded-[28px]">
                       <Input
                         placeholder="Search address"
@@ -572,7 +572,7 @@ const OrigamiPoints = () => {
             {activeTab === 'analytics' && (
               <div className="space-y-6">
                 {/* Lifetime Stats */}
-                <Card className="hover:shadow-md transition-shadow p-[1px] overflow-hidden rounded-[28px]" 
+                <Card className="hover:shadow-md transition-shadow p-px overflow-hidden rounded-[28px]" 
                       style={{ 
                         padding: '1.5px',
                         borderRadius: '32px',
@@ -699,7 +699,7 @@ const OrigamiPoints = () => {
                 </Card>
 
                 {/* Daily Active Users */}
-                <Card className="hover:shadow-md transition-shadow p-[1px] overflow-hidden rounded-[28px]" 
+                <Card className="hover:shadow-md transition-shadow p-px overflow-hidden rounded-[28px]" 
                       style={{ 
                         padding: '1.5px',
                         borderRadius: '32px',
@@ -771,7 +771,7 @@ const OrigamiPoints = () => {
                 </Card>
 
                 {/* Vault Performance */}
-                <Card className="hover:shadow-md transition-shadow p-[1px] overflow-hidden rounded-[28px]" 
+                <Card className="hover:shadow-md transition-shadow p-px overflow-hidden rounded-[28px]" 
                       style={{ 
                         padding: '1.5px',
                         borderRadius: '32px',
@@ -833,7 +833,7 @@ const OrigamiPoints = () => {
                 )}
 
                 {error && (
-                  <div className="text-red-500 text-center py-4 bg-white rounded-[28px] shadow-sm overflow-hidden">
+                  <div className="text-red-500 text-center py-4 bg-white rounded-[28px] shadow-xs overflow-hidden">
                     {error.message}
                   </div>
                 )}
@@ -849,7 +849,7 @@ const OrigamiPoints = () => {
                   .map((item) => (
                     <Card 
                       key={item.address} 
-                      className="hover:shadow-md transition-shadow p-[1px] overflow-hidden rounded-[28px]" 
+                      className="hover:shadow-md transition-shadow p-px overflow-hidden rounded-[28px]" 
                       style={{ 
                         padding: '1px',
                         borderRadius: '32px',
